@@ -3,20 +3,27 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-authors = [{ name = "Elias Obeid", email = "elias.obeid9.02@gmail.com" }]
 name = "cf_util"
-version = "0.1.0"
+version = "0.1.1"
+requires-python = ">=3.0"
+dependencies = ["beautifulsoup4", "requests"]
 description = "A python tool to help install accepted submission from codeforces.com."
+
+authors = [{ name = "Elias Obeid", email = "elias.obeid9.02@gmail.com" }]
+maintainers = [{ name = "Elias Obeid", email = "elias.obeid9.02@gmail.com" }]
+
 readme = "README.md"
-license = { file = "LICENSE.md" }
+license = { file = "LICENSE" }
+
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-requires-python = ">=3.0"
-dependencies = ["bs4", "requests"]
+
+[project.scripts]
+cf_util = "src.main:main"
 
 [project.urls]
-"Homepage" = "https://github.com"
-"Bug Tracker" = "https://github.com"
+"Homepage" = "https://github.com/EliasObeid9-02/cf_util"
+"Bug Tracker" = "https://github.com/EliasObeid9-02/cf_util/issues"
