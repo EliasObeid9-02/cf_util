@@ -5,9 +5,16 @@ from pathlib import Path
 codeforces = "https://codeforces.com"
 codeforces_api = codeforces + "/api"
 codeforces_contests = codeforces + "/contests/with"
-contest_status = codeforces_api + "/contest.status?"
-user_status = codeforces_api + "/user.status?"
+contest_status = codeforces_api + "/contest.status"
+user_status = codeforces_api + "/user.status"
 
+codeforces_tags = ["2-sat", "binary-search", "bitmasks", "brute-force",
+    "chinese-remainder-theorem", "combinatorics", "constructive-algorithms",
+    "data-structures", "dfs-and-similar", "divide-and-conquer", "dp", "dsu",
+    "expression-parsing", "fft", "flows", "games", "geometry", "graph-matchings", "graphs", "greedy",
+    "hashing", "implementation", "interactive", "math", "matrices", "meet-in-the-middle",
+    "number-theory", "probabilities", "schedules", "shortest-paths", "sortings",
+    "string-suffix-structures", "strings", "ternary-search", "trees", "two-pointers"]
 ### START Utility Functions
 
 def get_submission_link(submission_id: str, contest_id: str) -> str:
@@ -15,13 +22,24 @@ def get_submission_link(submission_id: str, contest_id: str) -> str:
 
 def get_submission_code(submission_id: str, contest_id: str) -> str:
     submission_link = get_submission_link(submission_id, contest_id)
-    page = requests.get(submission_link)
-    html = bs4.BeautifulSoup(page.text, "html.parser")
+    while True:
+        page = requests.get(submission_link)
+        html = bs4.BeautifulSoup(page.text, "html.parser")
+        if (page.status_code != requests.codes.ok or
+            not html.find(id="program-source-text")):
+            time.sleep(30)
+            continue
+        break
     return html.find(id="program-source-text").text
 
 def get_contest_list(user_handle: str) -> list:
-    page = requests.get(codeforces_contests + '/' + user_handle + "?type=all")
-    html = bs4.BeautifulSoup(page.text, "html.parser")
+    while True:
+        page = requests.get(codeforces_contests + '/' + user_handle, {"type": "all"})
+        html = bs4.BeautifulSoup(page.text, "html.parser")
+        if page.status_code != requests.codes.ok or not html.find("a"):
+            time.sleep(30)
+            continue
+        break
 
     contest_list = []
     for contest in html.find_all("a", {"href" : re.compile("/submissions/%s/contest/*" % user_handle)}):
@@ -52,7 +70,11 @@ def contests_downloader(user_handle: str, count: int):
     os.mkdirs(contests_folder)
     for contest_id in get_contest_list(user_handle):
         os.mkdir(contests_folder / contest_id)
-        data = json.loads(requests.get(contest_status + "contestId=%s&handle=%s" % (contest_id, user_handle)).text)
+        try:
+            data = json.loads(requests.get(contest_status, {"contestId": contest_id, "handle": user_handle}).text)
+        except:
+            raise Exception("Codeforces is down! Please try again later.")
+
         for submission in data["result"]:
             if submission["author"]["participantType"] == "PRACTICE":
                 continue
@@ -65,7 +87,7 @@ def contests_downloader(user_handle: str, count: int):
                 continue
 
             count -= 1
-            if count < 0:
+            if count == 0:
                 break
 
             submission_code = get_submission_code(submission_id, contest_id)
@@ -84,7 +106,10 @@ def problems_downloader(user_handle: str, count: int, min_rating: int, max_ratin
     if not os.path.exists(problems_folder):
         os.makedirs(problems_folder)
     accepted_submissions_count = {}
-    data = json.loads(requests.get(user_status + "handle=%s" % user_handle).text)
+    try:
+        data = json.loads(requests.get(user_status, {"handle": user_handle}).text)
+    except:
+        raise Exception("Codeforces is down! Please try again later.")
 
     for submission in data["result"]:
         if not submission["problem"].get("rating"):
@@ -102,6 +127,10 @@ def problems_downloader(user_handle: str, count: int, min_rating: int, max_ratin
         not valid_tags(problem_tags, tags, combine_by_or)):
             continue
 
+        count -= 1
+        if count == 0:
+            break
+
         contest_folder = problems_folder / contest_id
         if not os.path.exists(contest_folder):
             os.mkdir(contest_folder)
@@ -115,10 +144,6 @@ def problems_downloader(user_handle: str, count: int, min_rating: int, max_ratin
         accepted_submissions_count[problem_name] += 1
         with open(submission_folder, "w") as code_file:
             code_file.write(submission_code)
-            count -= 1
-
-        if count == -1:
-            break
 
 ### END Sub Commands
 
@@ -149,7 +174,7 @@ parser_problems_downloader.add_argument("-m", "--min-rating", dest="min_rating",
                                         help="Minumum rating of problem's submission allowed to be downloaded.")
 parser_problems_downloader.add_argument("-M", "--max-rating", dest="max_rating", type=int,
                                         help="Maximum rating of problem's submission allowed to be downloaded.")
-parser_problems_downloader.add_argument("-t", "--tags", dest="tags", nargs="+", type=str,
+parser_problems_downloader.add_argument("-t", "--tags", dest="tags", nargs="+", type=str, choices=codeforces_tags,
                                         help="List of problem tags allowed to be downloaded.Note that the tags must be "   \
                                         "worded exactly how they are worded on codeforces, tags made up from multiple "     \
                                         "words then they must separated by a dash '-'.")
@@ -171,14 +196,14 @@ def main():
 
 def command_contests_downloader(args):
     handle = args.handle
-    count = 5
+    count = 10_000
     if args.count:
         count = args.count
     contests_downloader(handle, count)
 
 def command_problems_downloader(args):
     handle = args.handle
-    count = 30
+    count = 10_000
     min_rating = 0
     max_rating = 3_500
     tags = []
@@ -195,7 +220,10 @@ def command_problems_downloader(args):
 
     if args.tags:
         for tag in args.tags:
-            tags.append(tag.replace('-', ' '))
+            if tag == "meet-in-the-middle" or tag == "2-sat":
+                tags.append(tag.lower())
+            else:
+                tags.append(tag.replace('-', ' ').lower())
 
     if args.combine_by_or:
         combine_by_or = args.combine_by_or
