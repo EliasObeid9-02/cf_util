@@ -7,7 +7,6 @@ codeforces_api = codeforces + "/api"
 codeforces_contests = codeforces + "/contests/with"
 contest_status = codeforces_api + "/contest.status"
 user_status = codeforces_api + "/user.status"
-
 codeforces_tags = ["2-sat", "binary-search", "bitmasks", "brute-force",
     "chinese-remainder-theorem", "combinatorics", "constructive-algorithms",
     "data-structures", "dfs-and-similar", "divide-and-conquer", "dp", "dsu",
@@ -15,6 +14,7 @@ codeforces_tags = ["2-sat", "binary-search", "bitmasks", "brute-force",
     "hashing", "implementation", "interactive", "math", "matrices", "meet-in-the-middle",
     "number-theory", "probabilities", "schedules", "shortest-paths", "sortings",
     "string-suffix-structures", "strings", "ternary-search", "trees", "two-pointers"]
+
 ### START Utility Functions
 
 def get_submission_link(submission_id: str, contest_id: str) -> str:
@@ -66,10 +66,10 @@ def contests_downloader(user_handle: str, count: int):
     if requests.get(codeforces + "/profile/" + user_handle).url == codeforces:
         raise Exception("Invalid user handle! User doesn't exist.")
 
-    contests_folder = Path(user_handle) / "contests"
-    os.makedirs(contests_folder)
+    files_path = Path("problems") / user_handle
+    os.makedirs(files_path)
     for contest_id in get_contest_list(user_handle):
-        os.mkdir(contests_folder / contest_id)
+        os.mkdir(files_path / contest_id)
         try:
             data = json.loads(requests.get(contest_status, {"contestId": contest_id, "handle": user_handle}).text)
         except:
@@ -87,9 +87,8 @@ def contests_downloader(user_handle: str, count: int):
             if submission_verdict != "OK":
                 continue
 
-
             submission_code = get_submission_code(submission_id, contest_id)
-            path = contests_folder / contest_id / str(problem_index + ".txt")
+            path = files_path / contest_id / str(problem_index + ".txt")
             if os.path.exists(path) and os.path.isfile(path):
                 continue
 
@@ -103,9 +102,10 @@ def problems_downloader(user_handle: str, count: int, min_rating: int, max_ratin
     if requests.get(codeforces + "/profile/" + user_handle).url == codeforces:
         raise Exception("Invalid user handle! User doesn't exist.")
 
-    problems_folder = Path(user_handle) / "problems"
-    if not os.path.exists(problems_folder):
-        os.makedirs(problems_folder)
+    files_path = Path("problems") / user_handle
+    if not os.path.exists(files_path):
+        os.makedirs(files_path)
+
     accepted_submissions_count = {}
     try:
         data = json.loads(requests.get(user_status, {"handle": user_handle}).text)
@@ -129,7 +129,7 @@ def problems_downloader(user_handle: str, count: int, min_rating: int, max_ratin
             continue
 
         count -= 1
-        contest_folder = problems_folder / contest_id
+        contest_folder = files_path / contest_id
         if not os.path.exists(contest_folder):
             os.mkdir(contest_folder)
 
