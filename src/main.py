@@ -62,89 +62,93 @@ def valid_tags(problem_tags: list[str], tags: list[str], combine_by_or: bool):
 
 ### START Sub Commands
 
-def contests_downloader(user_handle: str, count: int):
-    if requests.get(codeforces + "/profile/" + user_handle).url == codeforces:
-        raise Exception("Invalid user handle! User doesn't exist.")
+def contests_downloader(user_handles: list[str], contest_count: int):
+    for user_handle in user_handles:
+        count = contest_count
+        if requests.get(codeforces + "/profile/" + user_handle).url == codeforces:
+            raise Exception("Invalid user handle! User doesn't exist.")
 
-    files_path = Path("problems") / user_handle
-    os.makedirs(files_path)
-    for contest_id in get_contest_list(user_handle):
-        os.mkdir(files_path / contest_id)
+        files_path = Path("problems") / user_handle
+        os.makedirs(files_path)
+        for contest_id in get_contest_list(user_handle):
+            os.mkdir(files_path / contest_id)
+            try:
+                data = json.loads(requests.get(contest_status, {"contestId": contest_id, "handle": user_handle}).text)
+            except:
+                raise Exception("Codeforces is down! Please try again later.")
+
+            count -= 1
+            for submission in data["result"]:
+                if submission["author"]["participantType"] == "PRACTICE":
+                    continue
+
+                submission_id = str(submission["id"])
+                submission_verdict = submission["verdict"]
+                problem_index = submission["problem"]["index"]
+
+                if submission_verdict != "OK":
+                    continue
+
+                submission_code = get_submission_code(submission_id, contest_id)
+                path = files_path / contest_id / str(problem_index + ".txt")
+                if os.path.exists(path) and os.path.isfile(path):
+                    continue
+
+                with open(path, "w") as code_file:
+                    code_file.write(submission_code)
+
+            if count == 0:
+                break
+
+def problems_downloader(user_handles: list[str], problem_count: int, min_rating: int, max_rating: int, tags: list[str], combine_by_or: bool):
+    for user_handle in user_handles:
+        count = problem_count
+        if requests.get(codeforces + "/profile/" + user_handle).url == codeforces:
+            raise Exception("Invalid user handle! User doesn't exist.")
+
+        files_path = Path("problems") / user_handle
+        if not os.path.exists(files_path):
+            os.makedirs(files_path)
+
+        accepted_submissions_count = {}
         try:
-            data = json.loads(requests.get(contest_status, {"contestId": contest_id, "handle": user_handle}).text)
+            data = json.loads(requests.get(user_status, {"handle": user_handle}).text)
         except:
             raise Exception("Codeforces is down! Please try again later.")
 
-        count -= 1
         for submission in data["result"]:
-            if submission["author"]["participantType"] == "PRACTICE":
+            if not submission["problem"].get("rating"):
                 continue
 
             submission_id = str(submission["id"])
             submission_verdict = submission["verdict"]
+            contest_id = str(submission["contestId"])
+            problem_tags = submission["problem"]["tags"]
             problem_index = submission["problem"]["index"]
+            problem_rating = submission["problem"]["rating"]
 
-            if submission_verdict != "OK":
+            if (submission_verdict != "OK" or
+            not (min_rating <= problem_rating and problem_rating <= max_rating) or
+            not valid_tags(problem_tags, tags, combine_by_or)):
                 continue
+
+            count -= 1
+            contest_folder = files_path / contest_id
+            if not os.path.exists(contest_folder):
+                os.mkdir(contest_folder)
 
             submission_code = get_submission_code(submission_id, contest_id)
-            path = files_path / contest_id / str(problem_index + ".txt")
-            if os.path.exists(path) and os.path.isfile(path):
-                continue
+            problem_name = contest_id + problem_index
+            if not accepted_submissions_count.get(problem_name):
+                accepted_submissions_count[problem_name] = 1
 
-            with open(path, "w") as code_file:
+            submission_folder = contest_folder / (problem_name + "_%d%s" % (accepted_submissions_count[problem_name], ".txt"))
+            accepted_submissions_count[problem_name] += 1
+            with open(submission_folder, "w") as code_file:
                 code_file.write(submission_code)
 
-        if count == 0:
-            break
-
-def problems_downloader(user_handle: str, count: int, min_rating: int, max_rating: int, tags: list[str], combine_by_or: bool):
-    if requests.get(codeforces + "/profile/" + user_handle).url == codeforces:
-        raise Exception("Invalid user handle! User doesn't exist.")
-
-    files_path = Path("problems") / user_handle
-    if not os.path.exists(files_path):
-        os.makedirs(files_path)
-
-    accepted_submissions_count = {}
-    try:
-        data = json.loads(requests.get(user_status, {"handle": user_handle}).text)
-    except:
-        raise Exception("Codeforces is down! Please try again later.")
-
-    for submission in data["result"]:
-        if not submission["problem"].get("rating"):
-            continue
-
-        submission_id = str(submission["id"])
-        submission_verdict = submission["verdict"]
-        contest_id = str(submission["contestId"])
-        problem_tags = submission["problem"]["tags"]
-        problem_index = submission["problem"]["index"]
-        problem_rating = submission["problem"]["rating"]
-
-        if (submission_verdict != "OK" or
-        not (min_rating <= problem_rating and problem_rating <= max_rating) or
-        not valid_tags(problem_tags, tags, combine_by_or)):
-            continue
-
-        count -= 1
-        contest_folder = files_path / contest_id
-        if not os.path.exists(contest_folder):
-            os.mkdir(contest_folder)
-
-        submission_code = get_submission_code(submission_id, contest_id)
-        problem_name = contest_id + problem_index
-        if not accepted_submissions_count.get(problem_name):
-            accepted_submissions_count[problem_name] = 1
-
-        submission_folder = contest_folder / (problem_name + "_%d%s" % (accepted_submissions_count[problem_name], ".txt"))
-        accepted_submissions_count[problem_name] += 1
-        with open(submission_folder, "w") as code_file:
-            code_file.write(submission_code)
-
-        if count == 0:
-            break
+            if count == 0:
+                break
 
 ### END Sub Commands
 
@@ -160,7 +164,7 @@ parser_contests_downloader = subparser.add_parser("contests-downloader",
                                                   description="Downloads the in-contest submissions of a specified user "   \
                                                   "in order from last participated in, optionally takes a second argument " \
                                                   "to specify the number of contests to download.")
-parser_contests_downloader.add_argument("handle", type=str, help="Codeforces user handle.")
+parser_contests_downloader.add_argument("user_handles", type=str, help="Codeforces user(s) handle.", nargs="+")
 parser_contests_downloader.add_argument("-c", "--count", dest="count", type=int,
                                         help="Number of contests to download. Maximum of 5.")
 
@@ -168,7 +172,7 @@ parser_problems_downloader = subparser.add_parser("problems-downloader",
                                                   description="Downloads a user's submissions in order from last sent "     \
                                                   "to first sent, optionally can specify the minimum/maximum rating of "    \
                                                   "of a problem and can specify the allowed tags.")
-parser_problems_downloader.add_argument("handle", type=str, help="Codeforces user handle.")
+parser_problems_downloader.add_argument("user_handles", type=str, help="Codeforces user(s) handle.", nargs="+")
 parser_problems_downloader.add_argument("-c", "--count", dest="count", required=False, type=int,
                                         help="Number of submissions to download. Maximum of 30.")
 parser_problems_downloader.add_argument("-m", "--min-rating", dest="min_rating", type=int,
@@ -196,14 +200,14 @@ def main():
         case _                      : raise Exception("Incorrect command!")
 
 def command_contests_downloader(args):
-    handle = args.handle
+    user_handles = args.user_handles
     count = 10_000
     if args.count:
         count = args.count
-    contests_downloader(handle, count)
+    contests_downloader(user_handles, count)
 
 def command_problems_downloader(args):
-    handle = args.handle
+    user_handles = args.user_handles
     count = 10_000
     min_rating = 0
     max_rating = 3_500
@@ -228,4 +232,4 @@ def command_problems_downloader(args):
 
     if args.combine_by_or:
         combine_by_or = args.combine_by_or
-    problems_downloader(handle, count, min_rating, max_rating, tags, combine_by_or)
+    problems_downloader(user_handles, count, min_rating, max_rating, tags, combine_by_or)
