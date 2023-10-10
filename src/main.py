@@ -17,6 +17,9 @@ codeforces_tags = ["2-sat", "binary-search", "bitmasks", "brute-force",
 
 ### START Utility Functions
 
+def get_problem_link(problem_index: str, contest_id: str) -> str:
+    return codeforces + "/contest/" + contest_id + "/problem/" + problem_index
+
 def get_submission_link(submission_id: str, contest_id: str) -> str:
     return codeforces + "/contest/" + contest_id + "/submission/" + submission_id
 
@@ -100,7 +103,8 @@ def contests_downloader(user_handles: list[str], contest_count: int):
             if count == 0:
                 break
 
-def problems_downloader(user_handles: list[str], problem_count: int, min_rating: int, max_rating: int, tags: list[str], combine_by_or: bool):
+def problems_downloader(user_handles: list[str], problem_count: int, min_rating: int, max_rating: int,
+                        tags: list[str], combine_by_or: bool, list_only: bool):
     for user_handle in user_handles:
         count = problem_count
         if requests.get(codeforces + "/profile/" + user_handle).url == codeforces:
@@ -116,7 +120,13 @@ def problems_downloader(user_handles: list[str], problem_count: int, min_rating:
         except:
             raise Exception("Codeforces is down! Please try again later.")
 
+        list_file_path = files_path / "problem_list.txt"
+        list_file = open(list_file_path, "w")
+
         for submission in data["result"]:
+            if count == 0:
+                break
+
             if not submission["problem"].get("rating"):
                 continue
 
@@ -133,6 +143,11 @@ def problems_downloader(user_handles: list[str], problem_count: int, min_rating:
                 continue
 
             count -= 1
+            list_file.write(get_problem_link(problem_index, contest_id) + ' ' + get_submission_link(submission_id, contest_id) + '\n')
+
+            if list_only:
+                continue
+
             contest_folder = files_path / contest_id
             if not os.path.exists(contest_folder):
                 os.mkdir(contest_folder)
@@ -146,9 +161,6 @@ def problems_downloader(user_handles: list[str], problem_count: int, min_rating:
             accepted_submissions_count[problem_name] += 1
             with open(submission_folder, "w") as code_file:
                 code_file.write(submission_code)
-
-            if count == 0:
-                break
 
 ### END Sub Commands
 
@@ -165,26 +177,31 @@ parser_contests_downloader = subparser.add_parser("contests-downloader",
                                                   "in order from last participated in, optionally takes a second argument " \
                                                   "to specify the number of contests to download.")
 parser_contests_downloader.add_argument("user_handles", type=str, help="Codeforces user(s) handle.", nargs="+")
-parser_contests_downloader.add_argument("-c", "--count", dest="count", type=int,
+parser_contests_downloader.add_argument("-c", "--count", dest="count", type=int, nargs="?", default=10_000,
                                         help="Number of contests to download. Maximum of 5.")
 
 parser_problems_downloader = subparser.add_parser("problems-downloader",
                                                   description="Downloads a user's submissions in order from last sent "     \
                                                   "to first sent, optionally can specify the minimum/maximum rating of "    \
                                                   "of a problem and can specify the allowed tags.")
-parser_problems_downloader.add_argument("user_handles", type=str, help="Codeforces user(s) handle.", nargs="+")
-parser_problems_downloader.add_argument("-c", "--count", dest="count", required=False, type=int,
-                                        help="Number of submissions to download. Maximum of 30.")
-parser_problems_downloader.add_argument("-m", "--min-rating", dest="min_rating", type=int,
-                                        help="Minumum rating of problem's submission allowed to be downloaded.")
-parser_problems_downloader.add_argument("-M", "--max-rating", dest="max_rating", type=int,
-                                        help="Maximum rating of problem's submission allowed to be downloaded.")
-parser_problems_downloader.add_argument("-t", "--tags", dest="tags", nargs="+", type=str,choices=codeforces_tags,
+parser_problems_downloader.add_argument("user_handles", type=str, nargs="+", help="Codeforces user(s) handle."              \
+                                        "At least one handle must be provided.")
+parser_problems_downloader.add_argument("-c", "--count", dest="count", type=int, nargs="?", default=10_000,
+                                        help="Number of submissions to download. Default of 10'000.")
+parser_problems_downloader.add_argument("-m", "--min-rating", dest="min_rating", type=int, nargs="?", default=0,
+                                        help="Minumum rating of problem's submission allowed to be downloaded. Default of 0.")
+parser_problems_downloader.add_argument("-M", "--max-rating", dest="max_rating", type=int, nargs="?", default=3500,
+                                        help="Maximum rating of problem's submission allowed to be downloaded. Default of 3500.")
+parser_problems_downloader.add_argument("-t", "--tags", dest="tags", type=str,choices=codeforces_tags, nargs="+",
                                         help="List of problem tags allowed to be downloaded.Note that the tags must be "   \
                                         "worded exactly how they are worded on codeforces, tags made up from multiple "     \
-                                        "words then they must separated by a dash '-'.")
-parser_problems_downloader.add_argument("-o", "--combine-by-or", dest="combine_by_or", type=bool,
-                                        help="Option to specify whether all tags must be present to be downloaded.")
+                                        "words then they must separated by a dash '-'. At least one tag must be provided.")
+parser_problems_downloader._option_string_actions["-t"].choices = ["2-sat", "binary-search", "..."]
+parser_problems_downloader.add_argument("-o", "--combine-by-or", dest="combine_by_or", action="store_true",
+                                        help="This option specifies whether all tags must be present for a problem to be inculded.")
+parser_problems_downloader.add_argument("-l", "--list-only", dest="list_only", action="store_true",
+                                        help="This option saves a list of problem links and submission links without "      \
+                                        "downloading any codes.")
 
 ### END Command Line Argument Parser
 
@@ -201,35 +218,22 @@ def main():
 
 def command_contests_downloader(args):
     user_handles = args.user_handles
-    count = 10_000
-    if args.count:
-        count = args.count
+    count = args.count
     contests_downloader(user_handles, count)
 
 def command_problems_downloader(args):
     user_handles = args.user_handles
-    count = 10_000
-    min_rating = 0
-    max_rating = 3_500
+    count = args.count
+    min_rating = args.min_rating
+    max_rating = args.max_rating
+    combine_by_or = args.combine_by_or
+    list_only = args.list_only
+
     tags = []
-    combine_by_or = False
-
-    if args.count:
-        count = args.count
-
-    if args.min_rating:
-        min_rating = args.min_rating
-
-    if args.max_rating:
-        max_rating = args.max_rating
-
     if args.tags:
         for tag in args.tags:
             if tag == "meet-in-the-middle" or tag == "2-sat":
                 tags.append(tag.lower())
             else:
                 tags.append(tag.replace('-', ' ').lower())
-
-    if args.combine_by_or:
-        combine_by_or = args.combine_by_or
-    problems_downloader(user_handles, count, min_rating, max_rating, tags, combine_by_or)
+    problems_downloader(user_handles, count, min_rating, max_rating, tags, combine_by_or, list_only)
