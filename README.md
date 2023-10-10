@@ -31,3 +31,4 @@ Can use the following optional arguments:
 3. `-M` or `--max-rating` to specify the maximum problem rating for a problem to be downloaded, set by default to 3500.
 4. `-t` or `--tags` to specify the allowed problem tags. Tags must be written in the same way they are written on the *codeforces* website, tags with multiple words must be separated by `-` instead of spaces. Note that by default if you specify multiple tags then they must all be present in a problem.
 5. `-o` or `--combine-by-or` in order to allow the presence of only one tag for a problem submission to be downloaded.
+6. `-l` or `--list-only` in order to not download any submissions' code.
