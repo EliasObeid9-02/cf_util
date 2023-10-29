@@ -195,8 +195,7 @@ parser_problems_downloader.add_argument("-M", "--max-rating", dest="max_rating",
 parser_problems_downloader.add_argument("-t", "--tags", dest="tags", type=str,choices=codeforces_tags, nargs="+",
                                         help="List of problem tags allowed to be downloaded.Note that the tags must be "   \
                                         "worded exactly how they are worded on codeforces, tags made up from multiple "     \
-                                        "words then they must separated by a dash '-'. At least one tag must be provided.")
-parser_problems_downloader._option_string_actions["-t"].choices = ["2-sat", "binary-search", "..."]
+                                        "words then they must separated by a dash '-'. At least one tag must be provided.", metavar="TAGS")
 parser_problems_downloader.add_argument("-o", "--combine-by-or", dest="combine_by_or", action="store_true",
                                         help="This option specifies whether all tags must be present for a problem to be inculded.")
 parser_problems_downloader.add_argument("-l", "--list-only", dest="list_only", action="store_true",
