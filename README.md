@@ -15,7 +15,7 @@ cf_util is a simple Python-based command line script that allows the user to get
 	
     cf_util contests-downloader tourist
     
-Downloads all in-contest **accepted** submissions for the specified user in order from newest to oldest.
+Downloads all in-contest **accepted** submissions for the specified user(s) in order from newest to oldest.
 
 Can use the optional argument `-c` or `--count` to specify how many contests to download, e.g, `cf_util contests-downloader tourist -c 5`.
 
@@ -23,7 +23,7 @@ Can use the optional argument `-c` or `--count` to specify how many contests to 
 
 	cf_util problems-downloader tourist
    	
-Downloads all **accepted** submissions for the specified user in order from newest to oldest.
+Downloads all **accepted** submissions for the specified user(s) in order from newest to oldest.
 
 Can use the following optional arguments:
 1. `-c` or `--count` to specify the number of submissions to download.
@@ -32,3 +32,9 @@ Can use the following optional arguments:
 4. `-t` or `--tags` to specify the allowed problem tags. Tags must be written in the same way they are written on the *codeforces* website, tags with multiple words must be separated by `-` instead of spaces. Note that by default if you specify multiple tags then they must all be present in a problem.
 5. `-o` or `--combine-by-or` in order to allow the presence of only one tag for a problem submission to be downloaded.
 6. `-l` or `--list-only` in order to not download any submissions' code.
+
+##### Get Gym List
+
+	cf_util get-gym-list tourist
+
+Returns a text file conatining links to all gyms that the user(s) participated in.
