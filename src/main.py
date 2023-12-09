@@ -244,6 +244,9 @@ def get_gym_list(user_handles: list[str]):
 
         gym_list = {}
         for submission in data["result"]:
+            if not "contestId" in submission:
+                continue
+
             contest_id = str(submission["contestId"])
             if int(contest_id) >= minimum_gym_id and not gym_list.get(contest_id):
                 gym_list[contest_id] = True
